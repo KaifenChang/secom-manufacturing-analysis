@@ -107,94 +107,20 @@ df_transformed.to_csv("secom_transformed.csv", index=False)
 
 print("Saved to secom_transformed.csv")
 
-# Load the transformed dataset
-df_cleaned_no_collinear = pd.read_csv("secom_transformed.csv")
+# correlation analysis
+## Ensure Timestamp is not included in numeric columns
+numeric_cols = df_transformed.select_dtypes(include=["number"]).columns
 
-# Separate features and label
-features = [col for col in df_cleaned_no_collinear.columns if col not in ['Label', 'Timestamp']]
-X = df_cleaned_no_collinear[features]
-y = df_cleaned_no_collinear['Label']
+## Calculate correlation matrix excluding non-numeric columns
+correlation_matrix = df_transformed[numeric_cols].corr()
 
-# Standardize the features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+## Plot correlation matrix
+plt.figure(figsize=(12, 8))
 
-# Print some information about our data
-print("\nData Information:")
-print(f"Number of samples: {len(X)}")
-print(f"Number of features: {len(features)}")
-print(f"Label distribution:\n{y.value_counts()}")
-print("\nFeature value ranges:")
-print(pd.DataFrame(X_scaled).describe())
-
-# Train Random Forest with different parameters
-rf_model = RandomForestClassifier(
-    n_estimators=1000,          # More trees
-    max_depth=None,             # Allow full depth
-    min_samples_split=2,        # Default split criterion
-    min_samples_leaf=1,         # Default leaf size
-    max_features='sqrt',        # Traditional RF feature selection
-    class_weight='balanced',    # Handle class imbalance
-    random_state=42
-)
-rf_model.fit(X_scaled, y)
-
-# Calculate feature importance using permutation importance
-perm_importance = permutation_importance(
-    rf_model, X_scaled, y,
-    n_repeats=10,
-    random_state=42
-)
-
-# Create feature importance DataFrame
-feature_importance = pd.DataFrame({
-    'feature': features,
-    'importance': perm_importance.importances_mean,
-    'std': perm_importance.importances_std
-})
-
-# Sort features by importance
-feature_importance = feature_importance.sort_values('importance', ascending=False)
-
-# Get top 10 features
-top_10_features = feature_importance.head(10)
-
-# Create bar plot of feature importance
-plt.figure(figsize=(12, 6))
-sns.barplot(
-    data=top_10_features,
-    x='feature',
-    y='importance',
-    color='skyblue',
-    yerr=top_10_features['std']  # Add error bars
-)
-plt.xticks(rotation=45, ha='right')
-plt.xlabel('Features')
-plt.ylabel('Permutation Importance Score')
-plt.title('Top 10 Most Important Features (Random Forest with Permutation Importance)')
-
-# Add value labels on top of each bar
-for i, v in enumerate(top_10_features['importance']):
-    plt.text(i, v, f'{v:.4f}', ha='center', va='bottom')
-
-# Adjust y-axis to start from 0 and add some padding at the top
-max_importance = top_10_features['importance'].max()
-plt.ylim(0, max_importance * 1.2)
-
+## Use a more efficient plotting method if needed
+sns.heatmap(correlation_matrix, annot=False, cmap="coolwarm", center=0)
+plt.title("Correlation Matrix of Features")
 plt.tight_layout()
 plt.show()
 
-print("\nTop 10 most important features:")
-print(top_10_features[['feature', 'importance']].to_string())
-
-# Print some additional statistics
-print("\nFeature Importance Statistics:")
-print(f"Max importance: {feature_importance['importance'].max():.6f}")
-print(f"Mean importance: {feature_importance['importance'].mean():.6f}")
-print(f"Number of features with importance > 0: {(feature_importance['importance'] > 0).sum()}")
-
-# Save feature importance results
-feature_importance.to_csv("feature_importance.csv", index=False)
-print("\nFeature importance saved to feature_importance.csv")
-
-
+print("Correlation matrix plotted successfully")

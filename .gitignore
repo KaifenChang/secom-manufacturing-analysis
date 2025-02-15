@@ -1,12 +1,13 @@
 .venv
 venv/
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+**/*.pyc
+**/*.pyo
+**/*.pyd
 .Python
 .env
 .idea/
-*.log
+**/*.log
 .DS_Store
+**/*.png
   
