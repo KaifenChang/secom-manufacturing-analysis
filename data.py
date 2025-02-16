@@ -89,6 +89,7 @@ print("Capped outliers using IQR")
 skewness = df_capped[numeric_cols].skew().sort_values(ascending=False)
 print("Skewness of the features:")
 print(skewness.head(20))
+#
 
 df_transformed = df_capped.copy()
 for feature in skewness[abs(skewness) > 1].index:
@@ -108,19 +109,94 @@ df_transformed.to_csv("secom_transformed.csv", index=False)
 print("Saved to secom_transformed.csv")
 
 # correlation analysis
+## Convert Timestamp to datetime
+df_combined['Timestamp'] = pd.to_datetime(df_combined['Timestamp'], errors='coerce')
+
 ## Ensure Timestamp is not included in numeric columns
 numeric_cols = df_transformed.select_dtypes(include=["number"]).columns
 
 ## Calculate correlation matrix excluding non-numeric columns
 correlation_matrix = df_transformed[numeric_cols].corr()
 
-## Plot correlation matrix
-plt.figure(figsize=(12, 8))
+# Enable interactive mode
+plt.ion()
 
-## Use a more efficient plotting method if needed
+# Plot correlation matrix and save to file
+plt.figure(figsize=(12, 8))
 sns.heatmap(correlation_matrix, annot=False, cmap="coolwarm", center=0)
 plt.title("Correlation Matrix of Features")
 plt.tight_layout()
-plt.show()
+plt.savefig("correlation_matrix.png")  # Save the plot to a file
+
+# Display the plot
+plt.show(block=False)  # Use block=False to make it non-blocking
+
+print("Correlation matrix saved to correlation_matrix.png and displayed")
+
+# Disable interactive mode if needed
+plt.ioff()
 
 print("Correlation matrix plotted successfully")
+
+# Set a threshold for identifying multicollinearity
+correlation_threshold = 0.8
+
+# Get the upper triangle of the correlation matrix
+upper_triangle = correlation_matrix.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(bool))
+
+# Find features with correlation greater than the threshold
+to_drop = [column for column in upper_triangle.columns if any(upper_triangle[column] > correlation_threshold)]
+
+# Optionally, you can print the pairs of features that are highly correlated
+print("Highly correlated feature pairs:")
+for column in to_drop:
+    correlated_features = upper_triangle.index[upper_triangle[column] > correlation_threshold].tolist()
+    for feature in correlated_features:
+        print(f"{column} - {feature}: {correlation_matrix.loc[column, feature]:.2f}")
+
+# Drop the features identified
+df_reduced = df_transformed.drop(columns=to_drop)
+
+print(f"Removed {len(to_drop)} highly collinear features")
+print("Remaining features:", len(df_reduced.columns))
+
+# Save the reduced dataset
+df_reduced.to_csv("secom_reduced.csv", index=False)
+print("Saved reduced dataset to secom_reduced.csv")
+
+# Feature importance using Random Forest
+print("\nCalculating feature importance using Random Forest...")
+
+# Prepare the data
+X = df_reduced.drop(['Label', 'Timestamp'], axis=1)
+y = df_reduced['Label']
+
+# Initialize and train Random Forest
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X, y)
+
+# Get feature importance
+feature_importance = pd.DataFrame({
+    'feature': X.columns,
+    'importance': rf.feature_importances_,
+    'std': np.std([tree.feature_importances_ for tree in rf.estimators_], axis=0)
+})
+
+# Sort by importance
+feature_importance = feature_importance.sort_values('importance', ascending=False)
+
+# Save feature importance to CSV
+feature_importance.to_csv('feature_importance.csv', index=False)
+print("Feature importance saved to feature_importance.csv")
+
+# Plot feature importance
+plt.figure(figsize=(12, 6))
+plt.bar(range(len(feature_importance)), feature_importance['importance'])
+plt.xticks(range(len(feature_importance)), feature_importance['feature'], rotation=90)
+plt.xlabel('Features')
+plt.ylabel('Importance')
+plt.title('Random Forest Feature Importance')
+plt.tight_layout()
+plt.savefig('feature_importance.png')
+plt.show()
+print("Feature importance plot saved to feature_importance.png")
