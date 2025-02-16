@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import boxcox
-from scipy.stats import yeojohnson
+from xgboost import XGBClassifier 
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -235,41 +235,52 @@ plt.ylabel("Correlation")
 plt.xticks(rotation=90)
 # plt.show()
 
-# Feature importance using Random Forest
-print("\nCalculating feature importance using Random Forest...")
+# Feature importance using XGBoost
+print("\nCalculating feature importance using XGBoost...")
 
 # Prepare the data
 X = df_reduced.drop(['Label', 'Timestamp'], axis=1)
 y = df_reduced['Label']
 
-# Initialize and train Random Forest
-rf = RandomForestClassifier(n_estimators=100, random_state=42)
-rf.fit(X, y)    
+# Convert labels from -1, 1 to 0, 1
+y = y.replace(-1, 0)
+
+# Updated XGBoost initialization with hyperparameter tuning and regularization
+xgb = XGBClassifier(
+    n_estimators=100,
+    random_state=42,
+    max_depth=4,       
+    learning_rate=0.1, 
+    reg_alpha=0.1,     # L1 regularization; encourages sparsity
+    reg_lambda=1.0,    # L2 regularization; prevents overfitting
+    gamma=0,
+    importance_type='weight'  # Options include: 'weight', 'gain', 'cover'
+)
+xgb.fit(X, y)
 
 # Get feature importance
 feature_importance = pd.DataFrame({
     'feature': X.columns,
-    'importance': rf.feature_importances_,
-    'std': np.std([tree.feature_importances_ for tree in rf.estimators_], axis=0)
-})  
+    'importance': xgb.feature_importances_
+})
 
 # Sort by importance
 feature_importance = feature_importance.sort_values('importance', ascending=False)
 
 # Save feature importance to CSV
 feature_importance.to_csv('feature_importance.csv', index=False)
-print("Feature importance saved to feature_importance.csv") 
+print("Feature importance saved to feature_importance.csv")
 
-# plot feature importance
+# Plot feature importance
 plt.figure(figsize=(12, 6))
 plt.bar(range(len(feature_importance)), feature_importance['importance'])
 plt.xticks(range(len(feature_importance)), feature_importance['feature'], rotation=90)
 plt.xlabel('Features')
 plt.ylabel('Importance')
-plt.title('Random Forest Feature Importance')   
+plt.title('XGBoost Feature Importance')
 plt.tight_layout()
 plt.savefig('feature_importance.png')
-# plt.show()
+#plt.show()
 
 print("Feature importance plot saved to feature_importance.png")
 
