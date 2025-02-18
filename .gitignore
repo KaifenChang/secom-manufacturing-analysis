@@ -10,4 +10,7 @@ __pycache__/
 **/*.log
 .DS_Store
 **/*.png
-  
+# Ignore all CSV files EXCEPT raw data
+*.csv
+!secom_data.csv
+!secom_labels.csv
